@@ -26,8 +26,31 @@ WEB_ROOT="/var/www"
 NGINX_SITES_AVAILABLE="/etc/nginx/sites-available"
 NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
 NGINX_LOG_DIR="/var/log/nginx"
-PHP_VERSIONS=("7.4" "8.0" "8.1" "8.2" "8.3" "8.4")
+PHP_VERSIONS=("7.4" "8.0" "8.1" "8.2" "8.3" "8.4" "8.5")
 DEFAULT_PHP="8.3"
+
+# Detect PHP versions khả dụng từ apt-cache
+detect_php_available() {
+    local available=()
+    for ver in "${PHP_VERSIONS[@]}"; do
+        if apt-cache show "php${ver}-fpm" &>/dev/null; then
+            available+=("$ver")
+        fi
+    done
+
+    if [[ ${#available[@]} -eq 0 ]]; then
+        msg_warn "Khong tim thay PHP nao trong repo. Thu cai PPA..."
+        add-apt-repository -y ppa:ondrej/php 2>/dev/null || true
+        apt-get update -y 2>/dev/null || true
+        for ver in "${PHP_VERSIONS[@]}"; do
+            if apt-cache show "php${ver}-fpm" &>/dev/null; then
+                available+=("$ver")
+            fi
+        done
+    fi
+
+    echo "${available[@]}"
+}
 MYSQL_CONFIG="/root/.my.cnf"
 BACKUP_DIR="/var/backups/server-manager"
 LOG_FILE="/var/log/server-manager.log"
@@ -275,13 +298,6 @@ client_body_timeout 120s;
 client_header_timeout 120s;
 send_timeout 120s;
 
-# Gzip
-gzip on;
-gzip_vary on;
-gzip_proxied any;
-gzip_comp_level 6;
-gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
-
 # Security headers
 add_header X-Frame-Options "SAMEORIGIN" always;
 add_header X-Content-Type-Options "nosniff" always;
@@ -298,58 +314,83 @@ fastcgi_busy_buffers_size 256k;
 fastcgi_temp_file_write_size 256k;
 NGINX_OPT
 
-    nginx -t >> "$LOG_FILE" 2>&1 && systemctl reload nginx
-    msg_ok "Nginx đã cài đặt và tối ưu"
+    if nginx -t 2>&1 | tee -a "$LOG_FILE"; then
+        systemctl reload nginx
+        msg_ok "Nginx da cai dat va toi uu"
+    else
+        msg_warn "Nginx config co loi, bo qua optimization.conf..."
+        rm -f /etc/nginx/conf.d/optimization.conf
+        systemctl reload nginx 2>/dev/null || true
+    fi
 }
 
 install_php() {
-    msg_step "Thêm PPA PHP (ondrej/php)..."
-    add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE"
-    apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+    msg_step "Them PPA PHP (ondrej/php)..."
+    if add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE"; then
+        msg_ok "PPA ondrej/php da them"
+        apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+    else
+        msg_warn "PPA khong ho tro Ubuntu nay, dung default repo"
+        # Remove failed PPA source
+        rm -f /etc/apt/sources.list.d/ondrej-*.list 2>/dev/null || true
+        apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+    fi
+
+    # Detect PHP versions co san trong repo
+    local php_available=($(detect_php_available))
+
+    if [[ ${#php_available[@]} -eq 0 ]]; then
+        msg_error "Khong tim thay PHP nao de cai dat!"
+        return 1
+    fi
 
     echo ""
-    echo -e "${WHITE}Chọn phiên bản PHP cần cài đặt:${NC}"
+    echo -e "${WHITE}Chon phien ban PHP can cai dat:${NC}"
     echo ""
 
     local selected_versions=()
 
-    for i in "${!PHP_VERSIONS[@]}"; do
-        local ver="${PHP_VERSIONS[$i]}"
+    for i in "${!php_available[@]}"; do
+        local ver="${php_available[$i]}"
         local status=""
         if command -v "php${ver}" &>/dev/null; then
-            status="${GREEN}(đã cài)${NC}"
+            status="${GREEN}(da cai)${NC}"
         fi
         echo -e "  ${CYAN}$((i+1)))${NC} PHP ${ver} ${status}"
     done
-    echo -e "  ${CYAN}A)${NC} Cài tất cả"
-    echo -e "  ${CYAN}R)${NC} Chỉ cài recommended (8.2, 8.3, 8.4)"
+    echo -e "  ${CYAN}A)${NC} Cai tat ca"
     echo ""
 
     if $AUTO_MODE; then
-        msg_info "Auto mode: chọn PHP recommended (8.2, 8.3, 8.4)"
-        selected_versions=("8.2" "8.3" "8.4")
+        # Auto: lay 3 phien ban moi nhat co san
+        local count=${#php_available[@]}
+        if [[ $count -ge 3 ]]; then
+            selected_versions=("${php_available[$((count-3))]}" "${php_available[$((count-2))]}" "${php_available[$((count-1))]}")
+        else
+            selected_versions=("${php_available[@]}")
+        fi
+        msg_info "Auto mode: PHP = ${selected_versions[*]}"
     else
-        echo -ne "${YELLOW}Nhập lựa chọn (vd: 1,3,5 hoặc A hoặc R): ${NC}"
+        echo -ne "${YELLOW}Nhap lua chon (vd: 1,3,5 hoac A): ${NC}"
         read -r php_choice
 
         case "$php_choice" in
-            [Aa]) selected_versions=("${PHP_VERSIONS[@]}") ;;
-            [Rr]) selected_versions=("8.2" "8.3" "8.4") ;;
+            [Aa]) selected_versions=("${php_available[@]}") ;;
             *)
                 IFS=',' read -ra choices <<< "$php_choice"
                 for c in "${choices[@]}"; do
                     c=$(echo "$c" | tr -d ' ')
                     local idx=$((c - 1))
-                    if [[ $idx -ge 0 && $idx -lt ${#PHP_VERSIONS[@]} ]]; then
-                        selected_versions+=("${PHP_VERSIONS[$idx]}")
+                    if [[ $idx -ge 0 && $idx -lt ${#php_available[@]} ]]; then
+                        selected_versions+=("${php_available[$idx]}")
                     fi
                 done
                 ;;
         esac
 
         if [[ ${#selected_versions[@]} -eq 0 ]]; then
-            msg_warn "Không có phiên bản nào được chọn. Cài mặc định PHP $DEFAULT_PHP"
-            selected_versions=("$DEFAULT_PHP")
+            msg_warn "Khong co phien ban nao duoc chon. Cai mac dinh PHP ${php_available[-1]}"
+            selected_versions=("${php_available[-1]}")
         fi
     fi
 
