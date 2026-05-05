@@ -5,9 +5,7 @@
 #  Sau khi cài đặt, tải script quản lý qlvps từ CDN về
 #
 #  Usage:
-#    curl -sL https://raw.githubusercontent.com/appnvtrong393-design/lemp-vps/main/install.sh | sudo bash
-#
-#  Auto mode: Khi pipe từ curl, tự động cài TẤT CẢ (không hỏi)
+#    curl -sL https://cdn.jsdelivr.net/gh/appnvtrong393-design/lemp-vps@main/install.sh | sudo bash
 #  Interactive mode: Khi chạy trực tiếp, hiện menu chọn
 ###############################################################################
 
@@ -60,7 +58,7 @@ MANAGER_DIR="/opt/laravel-manager"
 GITHUB_USER="appnvtrong393-design"
 GITHUB_REPO="lemp-vps"
 GITHUB_BRANCH="main"
-GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}"
+CDN_URL="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${GITHUB_BRANCH}"
 
 # ========================== MÀU SẮC ==========================
 RED='\033[0;31m'
@@ -638,7 +636,7 @@ install_menu() {
         echo -e "  ${CYAN} 9)${NC}  Cài phpMyAdmin"
         echo ""
         echo -e "  ${WHITE}${BOLD}── QUẢN LÝ ──${NC}"
-        echo -e "  ${CYAN}10)${NC}  Tải script quản lý qlvps từ GitHub"
+        echo -e "  ${CYAN}10)${NC}  Tải script quản lý qlvps từ CDN"
         echo ""
         echo -e "  ${WHITE}${BOLD}── TRẠNG THÁI ──${NC}"
         echo -e "  ${CYAN}11)${NC}  Xem trạng thái dịch vụ"
@@ -690,11 +688,11 @@ install_menu() {
 
 setup_manager_script() {
     print_header
-    echo -e "${WHITE}${BOLD}  ▸ TẢI SCRIPT QUẢN LÝ (qlvps) TỪ GITHUB${NC}"
+    echo -e "${WHITE}${BOLD}  ▸ TAI SCRIPT QUAN LY (qlvps) TU CDN${NC}"
     print_separator
     echo ""
 
-    echo -e "  ${WHITE}GitHub:${NC} ${CYAN}github.com/${GITHUB_USER}/${GITHUB_REPO}${NC}"
+    echo -e "  ${WHITE}CDN:${NC} ${CYAN}${CDN_URL}${NC}"
     echo -e "  ${WHITE}Branch:${NC} ${CYAN}${GITHUB_BRANCH}${NC}"
     echo ""
 
@@ -714,7 +712,7 @@ setup_manager_script() {
 
     local all_ok=true
     for file in "${FILES[@]}"; do
-        local file_url="${GITHUB_RAW}/${file}"
+        local file_url="${CDN_URL}/${file}"
         local file_path="${MANAGER_DIR}/${file}"
 
         msg_info "Tải ${file}..."
@@ -729,10 +727,10 @@ setup_manager_script() {
     if ! $all_ok; then
         echo ""
         msg_error "Một số file không tải được. Kiểm tra:"
-        echo -e "  - Repo đúng? Hiện tại: github.com/${GITHUB_USER}/${GITHUB_REPO}"
-        echo -e "  - Branch đúng? Hiện tại: ${GITHUB_BRANCH}"
-        echo -e "  - File đã push lên GitHub chưa?"
-        echo -e "  - Thử: curl -I ${GITHUB_RAW}/qlvps"
+        echo -e "  - Repo dung? Hien tai: github.com/${GITHUB_USER}/${GITHUB_REPO}"
+        echo -e "  - Branch dung? Hien tai: ${GITHUB_BRANCH}"
+        echo -e "  - File da push len GitHub chua?"
+        echo -e "  - Thử: curl -I ${CDN_URL}/qlvps"
         press_enter
         return
     fi
@@ -766,7 +764,7 @@ setup_manager_script() {
     echo ""
     echo -e "  ${YELLOW}Gõ 'qlvps' để vào menu quản lý. Tự động sudo nếu cần.${NC}"
     echo ""
-    log "qlvps manager script installed from github.com/${GITHUB_USER}/${GITHUB_REPO}"
+    log "qlvps manager script installed from ${CDN_URL}"
 
     press_enter
 }
@@ -787,7 +785,7 @@ auto_install() {
     echo -e "    6. Node.js & npm"
     echo -e "    7. Redis"
     echo -e "    8. phpMyAdmin"
-    echo -e "    9. Tải script quản lý qlvps"
+    echo -e "    9. Tai script quan ly qlvps"
     echo ""
     echo -e "  ${YELLOW}Bắt đầu sau 3 giây... (Ctrl+C để hủy)${NC}"
     sleep 3
@@ -845,7 +843,7 @@ auto_install() {
 
     # 9. Download qlvps
     echo ""
-    msg_step "[9/9] Tai script quan ly qlvps..."
+    msg_step "[9/9] Tai script quan ly qlvps tu CDN..."
     setup_manager_script
 
     echo ""

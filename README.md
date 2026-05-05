@@ -5,7 +5,7 @@ Script tự động cài đặt và quản lý LEMP Stack + Laravel trên Ubuntu
 ## Cài đặt
 
 ```bash
-curl -sL https://raw.githubusercontent.com/appnvtrong393-design/lemp-vps/main/install.sh | sudo bash
+curl -sL https://cdn.jsdelivr.net/gh/appnvtrong393-design/lemp-vps@main/install.sh | sudo bash
 ```
 
 Sau khi chạy, script tự động:
