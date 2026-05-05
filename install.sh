@@ -159,6 +159,25 @@ download_file() {
     curl -fsSL "$url" -o "$dest" 2>/dev/null
 }
 
+# Chạy lệnh với real-time log (hiện ra màn hình + ghi file)
+run_log() {
+    local label="$1"
+    shift
+    msg_step "$label..."
+    if "$@" 2>&1 | tee -a "$LOG_FILE"; then
+        msg_ok "$label"
+    else
+        local ret=${PIPESTATUS[0]}
+        msg_error "$label (exit: $ret)"
+        return $ret
+    fi
+}
+
+# Chạy lệnh silent (chỉ ghi file, ko hiện màn hình)
+run_silent() {
+    "$@" >> "$LOG_FILE" 2>&1
+}
+
 # ========================== 1. SETUP & CẬP NHẬT HỆ THỐNG ==========================
 
 setup_system() {
@@ -208,7 +227,7 @@ setup_system() {
         sysstat \
         logrotate \
         rsync \
-        >> "$LOG_FILE" 2>&1
+        2>&1 | tee -a "$LOG_FILE"
     msg_ok "Cài đặt gói cơ bản hoàn tất"
 
     msg_step "Cấu hình timezone Asia/Ho_Chi_Minh..."
@@ -245,7 +264,7 @@ setup_system() {
 
 install_nginx() {
     msg_step "Cài đặt Nginx..."
-    apt-get install -y nginx >> "$LOG_FILE" 2>&1
+    apt-get install -y nginx 2>&1 | tee -a "$LOG_FILE"
     systemctl enable nginx >> "$LOG_FILE" 2>&1
     systemctl start nginx >> "$LOG_FILE" 2>&1
 
@@ -285,8 +304,8 @@ NGINX_OPT
 
 install_php() {
     msg_step "Thêm PPA PHP (ondrej/php)..."
-    add-apt-repository -y ppa:ondrej/php >> "$LOG_FILE" 2>&1
-    apt-get update -y >> "$LOG_FILE" 2>&1
+    add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE"
+    apt-get update -y 2>&1 | tee -a "$LOG_FILE"
 
     echo ""
     echo -e "${WHITE}Chọn phiên bản PHP cần cài đặt:${NC}"
@@ -351,10 +370,10 @@ install_php() {
             packages+=" php${ver}-${ext}"
         done
 
-        apt-get install -y $packages >> "$LOG_FILE" 2>&1 || {
-            msg_warn "Một số extension PHP ${ver} không khả dụng, bỏ qua..."
+        apt-get install -y $packages 2>&1 | tee -a "$LOG_FILE" || {
+            msg_warn "Mot so extension PHP ${ver} khong kha dung, bo qua..."
             for ext in "${PHP_EXTENSIONS[@]}"; do
-                apt-get install -y "php${ver}-${ext}" >> "$LOG_FILE" 2>&1 || true
+                apt-get install -y "php${ver}-${ext}" 2>&1 | tee -a "$LOG_FILE" || true
             done
         }
 
@@ -404,7 +423,7 @@ install_php() {
 
 install_mysql() {
     msg_step "Cài đặt MySQL Server..."
-    apt-get install -y mysql-server mysql-client >> "$LOG_FILE" 2>&1
+    apt-get install -y mysql-server mysql-client 2>&1 | tee -a "$LOG_FILE"
     systemctl enable mysql >> "$LOG_FILE" 2>&1
     systemctl start mysql >> "$LOG_FILE" 2>&1
 
@@ -472,14 +491,14 @@ install_nodejs() {
     msg_step "Cài đặt Node.js (LTS) & npm..."
     if ! command -v node &>/dev/null; then
         curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - >> "$LOG_FILE" 2>&1
-        apt-get install -y nodejs >> "$LOG_FILE" 2>&1
+        apt-get install -y nodejs 2>&1 | tee -a "$LOG_FILE"
     fi
     msg_ok "Node.js: $(node --version 2>/dev/null) | npm: $(npm --version 2>/dev/null)"
 }
 
 install_redis() {
     msg_step "Cài đặt Redis Server..."
-    apt-get install -y redis-server >> "$LOG_FILE" 2>&1
+    apt-get install -y redis-server 2>&1 | tee -a "$LOG_FILE"
     systemctl enable redis-server >> "$LOG_FILE" 2>&1
     systemctl start redis-server >> "$LOG_FILE" 2>&1
 
@@ -732,56 +751,56 @@ auto_install() {
     echo ""
 
     # 1. Setup system
-    msg_step "[1/9] Setup & cập nhật hệ thống..."
-    apt-get update -y >> "$LOG_FILE" 2>&1
-    apt-get upgrade -y >> "$LOG_FILE" 2>&1
-    apt-get install -y software-properties-common apt-transport-https ca-certificates \
-        curl wget gnupg lsb-release unzip zip git htop nano vim net-tools \
-        ufw fail2ban acl cron supervisor certbot python3-certbot-nginx \
-        openssl jq tree ncdu iotop sysstat logrotate rsync >> "$LOG_FILE" 2>&1
+    run_log "[1/9] Update package list"          apt-get update -y
+    run_log "[1/9] Upgrade system"               apt-get upgrade -y
+    run_log "[1/9] Install base packages"        apt-get install -y software-properties-common apt-transport-https ca-certificates curl wget gnupg lsb-release unzip zip git htop nano vim net-tools ufw fail2ban acl cron supervisor certbot python3-certbot-nginx openssl jq tree ncdu iotop sysstat logrotate rsync
 
-    timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
-    ufw default deny incoming >> "$LOG_FILE" 2>&1 || true
-    ufw default allow outgoing >> "$LOG_FILE" 2>&1 || true
-    ufw allow ssh >> "$LOG_FILE" 2>&1 || true
-    ufw allow 'Nginx Full' >> "$LOG_FILE" 2>&1 || true
-    ufw --force enable >> "$LOG_FILE" 2>&1 || true
-    systemctl enable fail2ban >> "$LOG_FILE" 2>&1 || true
-    systemctl start fail2ban >> "$LOG_FILE" 2>&1 || true
-    apt-get autoremove -y >> "$LOG_FILE" 2>&1
-    apt-get autoclean -y >> "$LOG_FILE" 2>&1
-    msg_ok "[1/9] Setup hệ thống hoàn tất"
+    run_silent timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
+    run_silent ufw default deny incoming 2>/dev/null || true
+    run_silent ufw default allow outgoing 2>/dev/null || true
+    run_silent ufw allow ssh 2>/dev/null || true
+    run_silent ufw allow 'Nginx Full' 2>/dev/null || true
+    run_silent ufw --force enable 2>/dev/null || true
+    run_silent systemctl enable fail2ban 2>/dev/null || true
+    run_silent systemctl start fail2ban 2>/dev/null || true
+    run_silent apt-get autoremove -y
+    run_silent apt-get autoclean -y
+    msg_ok "[1/9] Setup he thong hoan tat"
 
-    # 2. Nginx
-    msg_step "[2/9] Cài đặt Nginx..."
+    # 2-4: LEMP core
+    echo ""
+    msg_step "[2/9] Cai dat Nginx..."
     install_nginx
 
-    # 3. PHP
-    msg_step "[3/9] Cài đặt PHP (8.2, 8.3, 8.4)..."
+    echo ""
+    msg_step "[3/9] Cai dat PHP (8.2, 8.3, 8.4)..."
     install_php
 
-    # 4. MySQL
-    msg_step "[4/9] Cài đặt MySQL..."
+    echo ""
+    msg_step "[4/9] Cai dat MySQL..."
     install_mysql
 
-    # 5. Composer
-    msg_step "[5/9] Cài đặt Composer..."
+    # 5-7: Tools
+    echo ""
+    msg_step "[5/9] Cai dat Composer..."
     install_composer
 
-    # 6. Node.js
-    msg_step "[6/9] Cài đặt Node.js & npm..."
+    echo ""
+    msg_step "[6/9] Cai dat Node.js & npm..."
     install_nodejs
 
-    # 7. Redis
-    msg_step "[7/9] Cài đặt Redis..."
+    echo ""
+    msg_step "[7/9] Cai dat Redis..."
     install_redis
 
     # 8. phpMyAdmin
-    msg_step "[8/9] Cài đặt phpMyAdmin..."
+    echo ""
+    msg_step "[8/9] Cai dat phpMyAdmin..."
     install_phpmyadmin
 
     # 9. Download qlvps
-    msg_step "[9/9] Tải script quản lý qlvps..."
+    echo ""
+    msg_step "[9/9] Tai script quan ly qlvps..."
     setup_manager_script
 
     echo ""
