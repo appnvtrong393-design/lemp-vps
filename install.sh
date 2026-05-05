@@ -318,12 +318,21 @@ NGINX_OPT
 install_php() {
     msg_step "Them PPA PHP (ondrej/php)..."
     add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE" || true
+
     if apt-get update -y 2>&1 | tee -a "$LOG_FILE"; then
-        msg_ok "PPA ondrej/php da them va apt update OK"
+        msg_ok "PPA ondrej/php OK"
     else
-        msg_warn "PPA khong ho tro Ubuntu nay, xoa va dung default repo"
-        rm -f /etc/apt/sources.list.d/ondrej-*.list /etc/apt/sources.list.d/ondrej-*.sources 2>/dev/null || true
-        apt-get update -y 2>&1 | tee -a "$LOG_FILE" || true
+        # Fallback: dung PPA cua Ubuntu LTS truoc do (noble=24.04)
+        msg_warn "PPA chua ho tro Ubuntu nay, thu fallback noble..."
+        sed -i 's/Suites: .*/Suites: noble/' /etc/apt/sources.list.d/ondrej-*.sources 2>/dev/null || true
+        sed -i 's/suites: .*/suites: noble/' /etc/apt/sources.list.d/ondrej-*.list 2>/dev/null || true
+        if apt-get update -y 2>&1 | tee -a "$LOG_FILE"; then
+            msg_ok "PPA ondrej/php OK (dung noble fallback)"
+        else
+            msg_warn "PPA khong ho tro, dung default repo"
+            rm -f /etc/apt/sources.list.d/ondrej-*.list /etc/apt/sources.list.d/ondrej-*.sources 2>/dev/null || true
+            apt-get update -y 2>&1 | tee -a "$LOG_FILE" || true
+        fi
     fi
 
     # Detect PHP versions co san trong repo
