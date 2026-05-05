@@ -98,8 +98,8 @@ press_enter() {
 
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        msg_error "Script cần chạy với quyền root. Sử dụng: sudo $0"
-        exit 1
+        echo -e "${YELLOW}Yeu cau quyen root. Dang tu dong sudo...${NC}"
+        exec sudo bash "$0" "$@"
     fi
 }
 
@@ -700,7 +700,7 @@ setup_manager_script() {
     echo -e "  ${WHITE}Lệnh:${NC}       ${GREEN}qlvps${NC}"
     echo -e "  ${WHITE}Alias:${NC}      qlvps -> bash ${MANAGER_DIR}/qlvps"
     echo ""
-    echo -e "  ${YELLOW}Gõ 'source ~/.bashrc' hoặc mở terminal mới để dùng lệnh qlvps${NC}"
+    echo -e "  ${YELLOW}Gõ 'qlvps' để vào menu quản lý. Tự động sudo nếu cần.${NC}"
     echo ""
     log "qlvps manager script installed from github.com/${GITHUB_USER}/${GITHUB_REPO}"
 
@@ -789,8 +789,8 @@ auto_install() {
     echo -e "${GREEN}║${WHITE}${BOLD}  AUTO INSTALL HOÀN TẤT!                                   ${NC}${GREEN}║${NC}"
     echo -e "${GREEN}╠══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${GREEN}║${NC}                                                              ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}  Gõ lệnh sau để dùng script quản lý:                       ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}  ${WHITE}source ~/.bashrc && qlvps${NC}                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  Gõ lệnh sau để vào menu quản lý:                           ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  ${WHITE}qlvps${NC}                                                       ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}                                                              ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}  MySQL root password lưu tại:                                ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}  ${WHITE}${MYSQL_CONFIG}${NC}                               ${GREEN}║${NC}"

@@ -85,8 +85,8 @@ press_enter() {
 
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        msg_error "Script cần chạy với quyền root. Sử dụng: sudo $0"
-        exit 1
+        echo -e "${YELLOW}Yeu cau quyen root. Dang tu dong sudo...${NC}"
+        exec sudo bash "$0" "$@"
     fi
 }
 
