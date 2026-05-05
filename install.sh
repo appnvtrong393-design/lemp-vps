@@ -405,17 +405,20 @@ install_php() {
     for ver in "${selected_versions[@]}"; do
         msg_step "Cài đặt PHP ${ver} và extensions..."
 
+        # Loc extension nao co san trong repo, cai 1 lenh duy nhat
         local packages="php${ver}"
+        local available_exts=()
         for ext in "${PHP_EXTENSIONS[@]}"; do
-            packages+=" php${ver}-${ext}"
+            if apt-cache show "php${ver}-${ext}" &>/dev/null; then
+                packages+=" php${ver}-${ext}"
+                available_exts+=("$ext")
+            fi
         done
-
-        apt-get install -y $packages 2>&1 | tee -a "$LOG_FILE" || {
-            msg_warn "Mot so extension PHP ${ver} khong kha dung, bo qua..."
-            for ext in "${PHP_EXTENSIONS[@]}"; do
-                apt-get install -y "php${ver}-${ext}" 2>&1 | tee -a "$LOG_FILE" || true
-            done
-        }
+        local missing=$(( ${#PHP_EXTENSIONS[@]} - ${#available_exts[@]} ))
+        if [[ $missing -gt 0 ]]; then
+            msg_info "PHP ${ver}: ${#available_exts[@]}/${#PHP_EXTENSIONS[@]} extensions available, skip ${missing}"
+        fi
+        apt-get install -y $packages 2>&1 | tee -a "$LOG_FILE"
 
         local fpm_conf="/etc/php/${ver}/fpm/pool.d/www.conf"
         if [[ -f "$fpm_conf" ]]; then
