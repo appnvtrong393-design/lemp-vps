@@ -1,0 +1,95 @@
+#!/bin/bash
+###############################################################################
+#  qlvps - Laravel Server Manager (Menu Quản Lý)
+#  Usage: sudo bash qlvps   hoặc   qlvps (nếu đã set alias)
+#  Thư mục: /opt/laravel-manager/
+###############################################################################
+
+set -euo pipefail
+
+MANAGER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source libraries
+source "${MANAGER_DIR}/lib/common.sh"
+source "${MANAGER_DIR}/lib/site.sh"
+source "${MANAGER_DIR}/lib/services.sh"
+source "${MANAGER_DIR}/lib/tools.sh"
+source "${MANAGER_DIR}/lib/info.sh"
+
+# ========================== MENU CHÍNH ==========================
+
+main_menu() {
+    while true; do
+        print_header
+
+        local ip=$(get_server_ip 2>/dev/null)
+        echo -e "  ${DIM}Server: ${ip} | $(hostname) | $(date '+%d/%m/%Y %H:%M')${NC}"
+        echo ""
+
+        echo -e "  ${WHITE}${BOLD}── WEBSITE ──${NC}"
+        echo -e "  ${CYAN} 1)${NC}  Tạo website Laravel"
+        echo -e "  ${CYAN} 2)${NC}  Quản lý website (bật/tắt/xóa/đổi PHP/xem config)"
+        echo -e "  ${CYAN} 3)${NC}  Phân quyền Laravel"
+        echo -e "  ${CYAN} 4)${NC}  Cài đặt HTTPS / SSL"
+        echo ""
+        echo -e "  ${WHITE}${BOLD}── SERVICES ──${NC}"
+        echo -e "  ${CYAN} 5)${NC}  Cronjob & Queue Worker"
+        echo -e "  ${CYAN} 6)${NC}  Quản lý Database"
+        echo -e "  ${CYAN} 7)${NC}  Quản lý PHP"
+        echo ""
+        echo -e "  ${WHITE}${BOLD}── TOOLS ──${NC}"
+        echo -e "  ${CYAN} 8)${NC}  Backup & Restore"
+        echo -e "  ${CYAN} 9)${NC}  Deploy Helper"
+        echo -e "  ${CYAN}10)${NC}  Bảo mật Server"
+        echo -e "  ${CYAN}11)${NC}  Xem Log"
+        echo -e "  ${CYAN}12)${NC}  Quản lý Swap Memory"
+        echo -e "  ${CYAN}13)${NC}  Thông tin Server"
+        echo ""
+        echo -e "  ${YELLOW} i)${NC}  Mở lại Install Menu (install.sh)"
+        echo -e "  ${RED} 0)${NC}  Thoát"
+        echo ""
+        print_separator
+        echo -ne "  ${YELLOW}Lựa chọn [0-13]: ${NC}"
+        read -r choice
+
+        case "$choice" in
+            1)  create_laravel_site ;;
+            2)  manage_sites ;;
+            3)  fix_permissions ;;
+            4)  install_ssl ;;
+            5)  manage_cron_queue ;;
+            6)  manage_database ;;
+            7)  manage_php ;;
+            8)  manage_backup ;;
+            9)  deploy_helper ;;
+            10) manage_security ;;
+            11) view_logs ;;
+            12) manage_swap ;;
+            13) show_server_info ;;
+            i|I)
+                if [[ -f "${MANAGER_DIR}/install.sh" ]]; then
+                    bash "${MANAGER_DIR}/install.sh"
+                else
+                    msg_error "Không tìm thấy install.sh tại ${MANAGER_DIR}"
+                    press_enter
+                fi
+                ;;
+            0)
+                echo ""
+                msg_info "Cảm ơn bạn đã sử dụng Laravel Server Manager!"
+                exit 0
+                ;;
+            *)
+                msg_error "Lựa chọn không hợp lệ"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ========================== KHỞI CHẠY ==========================
+
+check_root
+mkdir -p "$(dirname "$LOG_FILE")" "$BACKUP_DIR"
+touch "$LOG_FILE"
+main_menu
