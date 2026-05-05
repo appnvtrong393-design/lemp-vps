@@ -38,7 +38,7 @@ log() {
 }
 
 print_header() {
-    clear
+    clear 2>/dev/null || true
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${WHITE}${BOLD}       Laravel Server Manager v$SCRIPT_VERSION                  ${NC}${CYAN}║${NC}"
     echo -e "${CYAN}║${DIM}       Ubuntu LEMP Stack + Laravel Management              ${NC}${CYAN}║${NC}"
