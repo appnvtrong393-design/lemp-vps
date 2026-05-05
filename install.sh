@@ -298,15 +298,6 @@ client_body_timeout 120s;
 client_header_timeout 120s;
 send_timeout 120s;
 
-# Security headers
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header Referrer-Policy "no-referrer-when-downgrade" always;
-
-# Hide server version
-server_tokens off;
-
 # Buffer sizes
 fastcgi_buffer_size 128k;
 fastcgi_buffers 256 16k;
@@ -326,14 +317,13 @@ NGINX_OPT
 
 install_php() {
     msg_step "Them PPA PHP (ondrej/php)..."
-    if add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE"; then
-        msg_ok "PPA ondrej/php da them"
-        apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+    add-apt-repository -y ppa:ondrej/php 2>&1 | tee -a "$LOG_FILE" || true
+    if apt-get update -y 2>&1 | tee -a "$LOG_FILE"; then
+        msg_ok "PPA ondrej/php da them va apt update OK"
     else
-        msg_warn "PPA khong ho tro Ubuntu nay, dung default repo"
-        # Remove failed PPA source
-        rm -f /etc/apt/sources.list.d/ondrej-*.list 2>/dev/null || true
-        apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+        msg_warn "PPA khong ho tro Ubuntu nay, xoa va dung default repo"
+        rm -f /etc/apt/sources.list.d/ondrej-*.list /etc/apt/sources.list.d/ondrej-*.sources 2>/dev/null || true
+        apt-get update -y 2>&1 | tee -a "$LOG_FILE" || true
     fi
 
     # Detect PHP versions co san trong repo
