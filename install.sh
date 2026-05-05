@@ -405,12 +405,14 @@ install_php() {
     for ver in "${selected_versions[@]}"; do
         msg_step "Cài đặt PHP ${ver} và extensions..."
 
-        # Loc extension nao co san trong repo, cai 1 lenh duy nhat
+        # Loc extension nao co san trong repo (bo qua virtual package), cai 1 lenh duy nhat
         local packages="php${ver}"
         local available_exts=()
         for ext in "${PHP_EXTENSIONS[@]}"; do
-            if apt-cache show "php${ver}-${ext}" &>/dev/null; then
-                packages+=" php${ver}-${ext}"
+            local pkg="php${ver}-${ext}"
+            # Chi lay package that (co Filename: trong apt-cache show, virtual package thi khong co)
+            if apt-cache show "$pkg" 2>/dev/null | grep -q '^Filename:'; then
+                packages+=" $pkg"
                 available_exts+=("$ext")
             fi
         done
