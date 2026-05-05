@@ -7,10 +7,18 @@
 #  Usage:
 #    curl -sL https://raw.githubusercontent.com/appnvtrong393-design/lemp-vps/main/install.sh | sudo bash
 #
-#  GitHub Public Repo: ai cũng curl được, nhưng script yêu cầu quyền root
+#  Auto mode: Khi pipe từ curl, tự động cài TẤT CẢ (không hỏi)
+#  Interactive mode: Khi chạy trực tiếp, hiện menu chọn
 ###############################################################################
 
 set -euo pipefail
+
+# ========================== AUTO MODE DETECT ==========================
+# Nếu không có TTY (pipe từ curl) hoặc có flag --auto thì tự động cài hết
+AUTO_MODE=false
+if [[ ! -t 0 ]] || [[ "${1:-}" == "--auto" ]]; then
+    AUTO_MODE=true
+fi
 
 # ========================== CẤU HÌNH ==========================
 SCRIPT_VERSION="3.0.0"
@@ -69,6 +77,9 @@ msg_error() { echo -e "${RED}[FAIL]${NC} $1"; }
 msg_step()  { echo -e "${MAGENTA}[STEP]${NC} $1"; }
 
 confirm() {
+    if $AUTO_MODE; then
+        return 0
+    fi
     local prompt="${1:-Bạn có muốn tiếp tục?}"
     echo -ne "${YELLOW}$prompt (y/n): ${NC}"
     read -r answer
@@ -76,6 +87,10 @@ confirm() {
 }
 
 press_enter() {
+    if $AUTO_MODE; then
+        echo ""
+        return
+    fi
     echo ""
     echo -ne "${DIM}Nhấn Enter để tiếp tục...${NC}"
     read -r
@@ -290,27 +305,33 @@ install_php() {
     echo -e "  ${CYAN}A)${NC} Cài tất cả"
     echo -e "  ${CYAN}R)${NC} Chỉ cài recommended (8.2, 8.3, 8.4)"
     echo ""
-    echo -ne "${YELLOW}Nhập lựa chọn (vd: 1,3,5 hoặc A hoặc R): ${NC}"
-    read -r php_choice
 
-    case "$php_choice" in
-        [Aa]) selected_versions=("${PHP_VERSIONS[@]}") ;;
-        [Rr]) selected_versions=("8.2" "8.3" "8.4") ;;
-        *)
-            IFS=',' read -ra choices <<< "$php_choice"
-            for c in "${choices[@]}"; do
-                c=$(echo "$c" | tr -d ' ')
-                local idx=$((c - 1))
-                if [[ $idx -ge 0 && $idx -lt ${#PHP_VERSIONS[@]} ]]; then
-                    selected_versions+=("${PHP_VERSIONS[$idx]}")
-                fi
-            done
-            ;;
-    esac
+    if $AUTO_MODE; then
+        msg_info "Auto mode: chọn PHP recommended (8.2, 8.3, 8.4)"
+        selected_versions=("8.2" "8.3" "8.4")
+    else
+        echo -ne "${YELLOW}Nhập lựa chọn (vd: 1,3,5 hoặc A hoặc R): ${NC}"
+        read -r php_choice
 
-    if [[ ${#selected_versions[@]} -eq 0 ]]; then
-        msg_warn "Không có phiên bản nào được chọn. Cài mặc định PHP $DEFAULT_PHP"
-        selected_versions=("$DEFAULT_PHP")
+        case "$php_choice" in
+            [Aa]) selected_versions=("${PHP_VERSIONS[@]}") ;;
+            [Rr]) selected_versions=("8.2" "8.3" "8.4") ;;
+            *)
+                IFS=',' read -ra choices <<< "$php_choice"
+                for c in "${choices[@]}"; do
+                    c=$(echo "$c" | tr -d ' ')
+                    local idx=$((c - 1))
+                    if [[ $idx -ge 0 && $idx -lt ${#PHP_VERSIONS[@]} ]]; then
+                        selected_versions+=("${PHP_VERSIONS[$idx]}")
+                    fi
+                done
+                ;;
+        esac
+
+        if [[ ${#selected_versions[@]} -eq 0 ]]; then
+            msg_warn "Không có phiên bản nào được chọn. Cài mặc định PHP $DEFAULT_PHP"
+            selected_versions=("$DEFAULT_PHP")
+        fi
     fi
 
     local PHP_EXTENSIONS=(
@@ -369,9 +390,14 @@ install_php() {
     done
 
     echo ""
-    echo -ne "${YELLOW}Chọn PHP mặc định (vd: ${selected_versions[0]}): ${NC}"
-    read -r default_ver
-    default_ver="${default_ver:-${selected_versions[0]}}"
+    if $AUTO_MODE; then
+        default_ver="${selected_versions[0]}"
+        msg_info "Auto mode: PHP mặc định = ${default_ver}"
+    else
+        echo -ne "${YELLOW}Chọn PHP mặc định (vd: ${selected_versions[0]}): ${NC}"
+        read -r default_ver
+        default_ver="${default_ver:-${selected_versions[0]}}"
+    fi
     update-alternatives --set php "/usr/bin/php${default_ver}" >> "$LOG_FILE" 2>&1 || true
     msg_ok "PHP mặc định: $(php -v 2>/dev/null | head -1)"
 }
@@ -681,9 +707,109 @@ setup_manager_script() {
     press_enter
 }
 
+# ========================== AUTO INSTALL ==========================
+
+auto_install() {
+    print_header
+    echo -e "${WHITE}${BOLD}  ▸ AUTO INSTALL - CÀI ĐẶT TỰ ĐỘNG TOÀN BỘ${NC}"
+    print_separator
+    echo ""
+    echo -e "  ${GREEN}Tự động cài:${NC}"
+    echo -e "    1. Setup & cập nhật hệ thống"
+    echo -e "    2. Nginx"
+    echo -e "    3. PHP (8.2, 8.3, 8.4)"
+    echo -e "    4. MySQL"
+    echo -e "    5. Composer"
+    echo -e "    6. Node.js & npm"
+    echo -e "    7. Redis"
+    echo -e "    8. phpMyAdmin"
+    echo -e "    9. Tải script quản lý qlvps"
+    echo ""
+    echo -e "  ${YELLOW}Bắt đầu sau 3 giây... (Ctrl+C để hủy)${NC}"
+    sleep 3
+
+    detect_os
+    echo ""
+
+    # 1. Setup system
+    msg_step "[1/9] Setup & cập nhật hệ thống..."
+    apt-get update -y >> "$LOG_FILE" 2>&1
+    apt-get upgrade -y >> "$LOG_FILE" 2>&1
+    apt-get install -y software-properties-common apt-transport-https ca-certificates \
+        curl wget gnupg lsb-release unzip zip git htop nano vim net-tools \
+        ufw fail2ban acl cron supervisor certbot python3-certbot-nginx \
+        openssl jq tree ncdu iotop sysstat logrotate rsync >> "$LOG_FILE" 2>&1
+
+    timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
+    ufw default deny incoming >> "$LOG_FILE" 2>&1 || true
+    ufw default allow outgoing >> "$LOG_FILE" 2>&1 || true
+    ufw allow ssh >> "$LOG_FILE" 2>&1 || true
+    ufw allow 'Nginx Full' >> "$LOG_FILE" 2>&1 || true
+    ufw --force enable >> "$LOG_FILE" 2>&1 || true
+    systemctl enable fail2ban >> "$LOG_FILE" 2>&1 || true
+    systemctl start fail2ban >> "$LOG_FILE" 2>&1 || true
+    apt-get autoremove -y >> "$LOG_FILE" 2>&1
+    apt-get autoclean -y >> "$LOG_FILE" 2>&1
+    msg_ok "[1/9] Setup hệ thống hoàn tất"
+
+    # 2. Nginx
+    msg_step "[2/9] Cài đặt Nginx..."
+    install_nginx
+
+    # 3. PHP
+    msg_step "[3/9] Cài đặt PHP (8.2, 8.3, 8.4)..."
+    install_php
+
+    # 4. MySQL
+    msg_step "[4/9] Cài đặt MySQL..."
+    install_mysql
+
+    # 5. Composer
+    msg_step "[5/9] Cài đặt Composer..."
+    install_composer
+
+    # 6. Node.js
+    msg_step "[6/9] Cài đặt Node.js & npm..."
+    install_nodejs
+
+    # 7. Redis
+    msg_step "[7/9] Cài đặt Redis..."
+    install_redis
+
+    # 8. phpMyAdmin
+    msg_step "[8/9] Cài đặt phpMyAdmin..."
+    install_phpmyadmin
+
+    # 9. Download qlvps
+    msg_step "[9/9] Tải script quản lý qlvps..."
+    setup_manager_script
+
+    echo ""
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${WHITE}${BOLD}  AUTO INSTALL HOÀN TẤT!                                   ${NC}${GREEN}║${NC}"
+    echo -e "${GREEN}╠══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${NC}                                                              ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  Gõ lệnh sau để dùng script quản lý:                       ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  ${WHITE}source ~/.bashrc && qlvps${NC}                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                              ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  MySQL root password lưu tại:                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}  ${WHITE}${MYSQL_CONFIG}${NC}                               ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                              ${GREEN}║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    show_services_status
+    log "Auto install completed"
+}
+
 # ========================== KHỞI CHẠY ==========================
 
 check_root
 mkdir -p "$(dirname "$LOG_FILE")" "$BACKUP_DIR"
 touch "$LOG_FILE"
-install_menu
+
+if $AUTO_MODE; then
+    auto_install
+else
+    install_menu
+fi
