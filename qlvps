@@ -7,7 +7,9 @@
 
 set -euo pipefail
 
-MANAGER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlink de tim thu muc that
+_SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+MANAGER_DIR="$(cd "$(dirname "$_SCRIPT_PATH")" && pwd)"
 
 # Source libraries
 source "${MANAGER_DIR}/lib/common.sh"
